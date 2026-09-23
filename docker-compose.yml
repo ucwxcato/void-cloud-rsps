@@ -7,31 +7,12 @@ services:
       # Required: use a persistent directory outside the Git checkout.
       - ${VOID_SAVES_DIR:?Set VOID_SAVES_DIR to a persistent saves directory}:/app/data/saves
     environment:
-      storage: database
-      storage.database.username: postgres
-      storage.database.password: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      storage.database.driver: org.postgresql.Driver
-      storage.database.jdbcUrl: jdbc:postgresql://db:5432/game?reWriteBatchedInserts=true
+      storage.type: files
     ports:
       - "43594:43594"
       - "8080:8080"
-    depends_on:
-      - db
-    networks:
-      - internal_network
-  db:
-    image: postgres:16.2-alpine3.19
-    environment:
-      POSTGRES_DB: game
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    volumes:
-      - void-db-data:/var/lib/postgresql/data
     networks:
       - internal_network
 networks:
   internal_network:
     driver: bridge
-
-volumes:
-  void-db-data:
