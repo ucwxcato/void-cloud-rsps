@@ -5,7 +5,7 @@ This repo (`ucwxcato/void-cloud-rsps`) is a fork of
 assistants exactly how to pull new content/fixes from upstream **without**
 overwriting the user's custom code, characters, or game data.
 
-The production branch is `personal-tweaks`, and production uses file storage. Live saves remain outside the checkout at `/srv/void-cloud-rsps-data/saves/`.
+The personal fork is `https://github.com/ucwxcato/void-cloud-rsps.git`. The production branch is `personal-tweaks`, and production uses file storage. Live saves remain outside the checkout at `/srv/void-cloud-rsps-data/saves/`.
 
 If you're an assistant reading this: read it fully before running `git pull`,
 `git merge`, or `git rebase`. The user has things they care about.
@@ -27,15 +27,15 @@ git checkout main
 git merge upstream/main                   # merge, NOT rebase — see §3
 # ...resolve conflicts using §4...
 ./gradlew :game:build -x test             # verify it still compiles
-git checkout custom/tweaks                # bring your tweaks branch up to date
+git switch personal-tweaks                # bring your production branch up to date
 git merge main
-git push                                  # pushes custom/tweaks to origin
+git push origin personal-tweaks
 ```
 
 **Never** run `git push --force` on a shared branch. **Never** `git rebase`
 onto upstream without explicit user approval. **Never** run `git push origin
 main` — `main` is a local sync mirror of `upstream/main`; only your tweaks
-branch (`custom/tweaks`) goes to `origin`.
+branch (`personal-tweaks`) goes to `origin`.
 
 ---
 
@@ -43,10 +43,10 @@ branch (`custom/tweaks`) goes to `origin`.
 
 | Remote        | URL                                                  | Role                                  |
 | ------------- | ---------------------------------------------------- | ------------------------------------- |
-| `origin`      | `github.com/alexfemcat/new-void.git`                 | The user's fork. Their canonical copy. |
+| `origin`      | `github.com/ucwxcato/void-cloud-rsps.git`            | The user's fork and production copy. |
 | `upstream`    | `github.com/GregHib/void.git`                        | Greg's original. Source of new features. |
 | (local) `main`| tracked branch on `upstream`                         | Clean mirror of Greg — never pushed to origin. |
-| (local) `custom/tweaks` | tracks `origin/custom/tweaks`              | User's custom changes — play from here, push here. |
+| (local) `personal-tweaks` | tracks `origin/personal-tweaks`              | User's production changes — deploy and push here. |
 
 Verify with:
 
@@ -58,9 +58,8 @@ git branch -vv                         # confirm which remote `main` tracks
 If `upstream` is missing, **ask the user before adding it** — they may want a
 specific branch (e.g. `upstream/master`) rather than `main`.
 
-The fork's `origin/main` is a placeholder with unrelated history (just bootstrap
-commits) and is **not** what `main` should track. If `git branch -vv` shows
-`main` tracking `origin/main`, fix it with:
+`main` should track `upstream/main`, not the fork's `origin/main`. If
+`git branch -vv` shows `main` tracking `origin/main`, fix it with:
 
 ```bash
 git branch --set-upstream-to=upstream/main main
@@ -74,8 +73,8 @@ Before merging, you need to know what's *theirs* (user) and what's *ours*
 (Greg). Run:
 
 ```bash
-git log --oneline origin/main ^upstream/main | head -30   # user-only commits
-git log --oneline upstream/main ^origin/main | head -30   # upstream-only commits
+git log --oneline origin/personal-tweaks ^upstream/main | head -30   # user-only commits
+git log --oneline upstream/main ^origin/personal-tweaks | head -30   # upstream-only commits
 ```
 
 **User-owned surfaces** (high blast radius — preserve unless told otherwise):
@@ -220,14 +219,21 @@ Check `.gitignore` for the safety nets already in place:
 - `data/cache/*` (cache files, `.idx`/`.dat`/`.dylib`/`.dll`)
 - `data/logs/error.log`
 - `data/saves/grand_exchange/price_history`
-- `*.jar`, `*.class`, `build/`, `.gradle/`
+- `*.class`, build outputs, and `.gradle/`
+- `*.jar` except the intentionally tracked `client-hetzner/` client files
 
 **Good news:** cache and build artifacts are not tracked, so upstream changes
 won't touch them.
 
 ### 5.2 Know what's still tracked (and at risk)
 
-These are committed and **will** be affected by a sync:
+Production saves are intentionally **not** the Git deployment artifact. The
+authoritative live directory is `/srv/void-cloud-rsps-data/saves/` on Hetzner,
+mounted into the container as `/app/data/saves/`. A Git sync must never copy an
+empty checkout directory over that host path.
+
+Files under a local checkout's ignored `data/saves/` directory may exist for
+development, but they are not the production source of truth.
 
 - `data/saves/grand_exchange/offers.toml`
 - `data/saves/grand_exchange/claimable_offers.toml`
@@ -235,37 +241,43 @@ These are committed and **will** be affected by a sync:
   `peepeepoopoo.toml`, `test1.toml`
 - `data/saves/logs/`
 
-**Before every sync, back these up outside git:**
+**Before every production sync, back up the external Hetzner saves directory
+while the game container is stopped:**
 
 ```bash
 # Linux / Git Bash
-tar czf ~/backups/void-saves-$(date +%F).tar.gz data/saves/
+backup_dir="/srv/void-cloud-rsps-backups/$(date +%Y-%m-%d_%H-%M-%S)"
+mkdir -p "$backup_dir"
+tar -C /srv/void-cloud-rsps-data -czf "$backup_dir/saves.tar.gz" saves
+test -s "$backup_dir/saves.tar.gz"
 ```
 
-Or simply copy `data/saves/` somewhere safe. If upstream changes the save
-schema and an in-game load fails, you restore from this backup.
+If you are working on Windows, SSH to Hetzner and back up the authoritative
+host directory. Do not use the local checkout as a substitute for this backup.
+If upstream changes the save schema and an in-game load fails, preserve the
+backup and investigate before restoring anything.
 
 ### 5.3 Recommended: keep saves out of git
 
-If the user wants bulletproof safety, suggest moving runtime saves out of the
-working tree entirely (e.g. to a sibling `runtime-data/` directory not under
-git), and configuring the server to read/write there. This way:
+Production already keeps runtime saves outside the Git working tree at
+`/srv/void-cloud-rsps-data/saves/`. Keep using that arrangement. This way:
 
 - Syncing upstream can never collide with player state.
 - A botched merge can't wipe a character.
 - Save files don't bloat the repo.
 
-If the user wants to keep them tracked (e.g. for backup across machines),
-recommend `git-lfs` for the save files, or at minimum a pre-sync
-`git diff data/saves/` sanity check.
+Do not add production saves to Git. Use the dated external backups instead.
 
 ### 5.4 Database
+
+The current production Compose setup uses file storage and has no PostgreSQL
+service for player data. Never run `docker compose down -v` as routine cleanup.
 
 If the server uses a SQL database (MySQL, etc. — see `docker-compose.yml`
 and `database/` directory), back up the dump before syncing:
 
 ```bash
-mysqldump -u root -p void > ~/backups/void-db-$(date +%F).sql
+pg_dump -U postgres game > "$backup_dir/game.sql"
 ```
 
 Schema changes in upstream migrations can orphan rows; the dump is the only
@@ -278,19 +290,19 @@ rollback.
 The simplest setup that doesn't get in the way:
 
 ```
-upstream/main  ──►  local main  ──►  custom/tweaks  ──►  origin/custom/tweaks
+upstream/main  ──►  local main  ──►  personal-tweaks  ──►  origin/personal-tweaks
 (Greg)              (clean mirror)   (your tweaks)       (your fork)
 ```
 
 `main` is a *sync target* — it only exists to fast-forward from `upstream/main`.
-Your customizations live on `custom/tweaks` (or a similarly-named branch). You
-play the game from `custom/tweaks` and push it to `origin`. **Do not push
+Your customizations live on `personal-tweaks`. Production deploys from
+`personal-tweaks`, and that branch is pushed to `origin`. **Do not push
 `main` to `origin`** — the fork's main branch holds placeholder bootstrap
 commits with unrelated history, and `main` is meant to mirror `upstream`
 cleanly.
 
 For heavier customization, consider splitting tweaks into multiple branches
-and merging them into `custom/tweaks` before each play session or push:
+and merging them into `personal-tweaks` before each production push:
 
 ```
 main
@@ -342,8 +354,8 @@ Before running any sync command, confirm:
 
 - [ ] Working tree is clean (`git status`).
 - [ ] On `main` (or whatever branch the user named).
-- [ ] `data/saves/` is backed up outside the repo.
-- [ ] Database dump is taken (if applicable).
+- [ ] `/srv/void-cloud-rsps-data/saves/` is backed up outside the repo.
+- [ ] Database dump is taken only if a database is deliberately enabled.
 - [ ] User has confirmed they want a sync right now.
 - [ ] You know which files are user-owned vs upstream-owned (§2).
 
@@ -355,9 +367,9 @@ After a successful sync:
 
 - [ ] `./gradlew :game:build -x test` passes.
 - [ ] `./gradlew test` passes (or known-failing tests documented).
-- [ ] `git log --oneline custom/tweaks ^upstream/main` still shows your tweaks.
+- [ ] `git log --oneline personal-tweaks ^upstream/main` still shows your tweaks.
 - [ ] Spot-check 1-2 character saves load in-game before declaring victory.
-- [ ] `git push` from `custom/tweaks` succeeds (no need to push `main`).
+- [ ] `git push origin personal-tweaks` succeeds (do not push `main`).
 - [ ] User is told what was merged and what (if anything) was rejected.
 
 ---
@@ -378,7 +390,7 @@ After a successful sync:
 
 - **Don't** run `git push --force` to `origin/main`.
 - **Don't** push `main` to `origin` at all — `main` is a local sync mirror of
-  `upstream/main`. Only your tweaks branch (`custom/tweaks` or similar) is
+  `upstream/main`. Only your production branch (`personal-tweaks`) is
   pushed to `origin`. The fork's `main` is placeholder bootstrap with unrelated
   history; force-pushing or merge-pushing local `main` there will desync the
   fork.

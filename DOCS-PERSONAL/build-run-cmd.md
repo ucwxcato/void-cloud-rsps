@@ -56,7 +56,9 @@ For local development only:
 ## Client
 
 The repository includes the working Windows client launcher and JAR in
-`client-hetzner/`. Run this from Windows after the Hetzner container is up:
+`client-hetzner/`. The ready-to-share package is
+`client-hetzner/void-client-hetzner-windows.zip`. Run this from Windows after
+the Hetzner container is up:
 
 ```bat
 client-hetzner\client.bat
