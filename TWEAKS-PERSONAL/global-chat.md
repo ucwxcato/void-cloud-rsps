@@ -14,15 +14,15 @@ Add two clearly labeled public-chat modes:
 [GLOBAL] Alice: Welcome everyone
 ```
 
-Normal public chat remains limited to nearby players. `/g ` sends a temporary
+Normal public chat remains limited to nearby players. A leading `.` sends a temporary
 server-wide message to eligible online players.
 
 ## Proposed behavior
 
 - Normal text uses the existing proximity radius.
-- `/g ` at the beginning of a message selects global chat.
-- `/g` with no message does not broadcast anything.
-- `/global` and other text that does not begin with `/g ` remain normal chat.
+- `.hello` and `. hello` at the beginning of a message select global chat.
+- `.` with no message does not broadcast anything.
+- Ordinary text that does not begin with `.` remains normal chat.
 - Muted players cannot use either channel.
 - Global chat has a server-side message-length limit and intentionally has no
   cooldown.
@@ -118,10 +118,10 @@ not a reason to overwrite upstream chat changes.
   `ChatTest`.
 - [ ] Normal text is labeled `[PROXIMITY]`. The routing path is implemented;
   live client presentation still needs verification.
-- [x] `/g message` reaches eligible players outside the proximity radius.
+- [x] `. message` reaches eligible players outside the proximity radius.
   Verified by `ChatTest`.
 - [ ] Global text is labeled `[GLOBAL]`.
-- [x] `/g` is rejected without broadcasting. Verified by `ChatTest`; whitespace
+- [x] `.` is rejected without broadcasting. Verified by `ChatTest`; whitespace
   variants still need a dedicated assertion.
 - [ ] `/server` remains normal proximity chat.
 - [ ] Muted players cannot send either channel.

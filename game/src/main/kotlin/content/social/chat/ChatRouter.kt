@@ -20,8 +20,8 @@ import world.gregs.voidps.network.login.protocol.encode.publicChat
 class ChatRouter(private val huffman: Huffman) {
 
     fun send(player: Player, text: String, effects: Int) {
-        if (player.chatType == "public" && (text == "/g" || text.startsWith(GLOBAL_PREFIX))) {
-            sendGlobal(player, text.removePrefix("/g").trim())
+        if (player.chatType == "public" && text.startsWith(GLOBAL_PREFIX)) {
+            sendGlobal(player, text.removePrefix(GLOBAL_PREFIX).trim())
             return
         }
 
@@ -47,7 +47,7 @@ class ChatRouter(private val huffman: Huffman) {
 
     private fun sendGlobal(player: Player, text: String) {
         if (text.isEmpty()) {
-            player.message("Usage: /g <message>")
+            player.message("Usage: . <message>")
             return
         }
         if (text.length > MAX_MESSAGE_LENGTH) {
@@ -56,7 +56,7 @@ class ChatRouter(private val huffman: Huffman) {
         }
         val normalized = normalize(text)
         if (normalized.isEmpty()) {
-            player.message("Usage: /g <message>")
+            player.message("Usage: . <message>")
             return
         }
         AuditLog.event(player, "global_said", normalized)
@@ -72,7 +72,7 @@ class ChatRouter(private val huffman: Huffman) {
     }
 
     private companion object {
-        const val GLOBAL_PREFIX = "/g "
+        const val GLOBAL_PREFIX = "."
         const val GLOBAL_TAG = "[GLOBAL]"
         const val PROXIMITY_TAG = "[PROXIMITY]"
         const val MAX_MESSAGE_LENGTH = 80
