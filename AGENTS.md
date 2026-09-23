@@ -177,6 +177,12 @@ If a deployment fails, preserve the failed logs and save backup, stop the game c
 
 ## Detailed references
 
+- `TWEAKS-PERSONAL/`: one document per personal gameplay/code tweak. Each file
+  records the tweak's intended behavior, implementation boundary, tests, and
+  safe upstream-update strategy. Keep these documents separate from general
+  deployment and planning documentation.
+- `TWEAKS-PERSONAL/global-chat.md`: global `/s` chat and labeled proximity-chat
+  design, including how to preserve it during upstream merges.
 - `DOCS-PERSONAL/Hetzner-Cloud-Deployment.md`: first deployment and operations.
 - `DOCS-PERSONAL/Production-Update-Safety.md`: save backup and persistence rules.
 - `DOCS-PERSONAL/planned/Personal-Branch-Update-Plan.md`: upstream synchronization and release workflow.
