@@ -59,3 +59,7 @@ gradle-app.setting
 *.lock
 /game.properties
 .env
+
+
+# personal possibly nono to github docs
+DOCS-PERSONAL/ignored-docs/ssh-hetzner-server.md
