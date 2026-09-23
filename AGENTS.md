@@ -157,5 +157,5 @@ If a deployment fails, preserve the failed logs and save backup, stop the game c
 
 - `DOCS-PERSONAL/Hetzner-Cloud-Deployment.md`: first deployment and operations.
 - `DOCS-PERSONAL/Production-Update-Safety.md`: save backup and persistence rules.
-- `DOCS-PERSONAL/Personal-Branch-Update-Plan.md`: upstream synchronization and release workflow.
+- `DOCS-PERSONAL/planned/Personal-Branch-Update-Plan.md`: upstream synchronization and release workflow.
 - `DOCS-PERSONAL/build-run-cmd.md`: build command notes.
