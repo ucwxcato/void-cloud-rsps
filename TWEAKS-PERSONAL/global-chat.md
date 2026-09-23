@@ -1,6 +1,7 @@
 # Global and Proximity Chat
 
-> **Status:** Planned; implementation has not started.
+> **Status:** Implemented locally and focused-tested; not yet deployed to
+> Hetzner production.
 >
 > **Related development plan:** [`DOCS-PERSONAL/planned/global-proximity-chat-plan.md`](../DOCS-PERSONAL/planned/global-proximity-chat-plan.md)
 
@@ -23,7 +24,8 @@ server-wide message to eligible online players.
 - `/s` with no message does not broadcast anything.
 - `/server` and other text that does not begin with `/s ` remain normal chat.
 - Muted players cannot use either channel.
-- Global chat has a server-side cooldown and message-length limit.
+- Global chat has a server-side message-length limit and intentionally has no
+  cooldown.
 - Recipient ignore lists should be respected unless a later decision changes
   that policy.
 - Messages are transient and are not saved to player files.
@@ -54,6 +56,20 @@ ProximityChat.kt         ← optional proximity formatting helper
 Do not register a second competing `ChatPublic` handler and depend on script
 load order. Either extend the existing handler minimally or make it delegate to
 one dedicated router.
+
+## Current implementation
+
+The current implementation uses:
+
+```text
+game/src/main/kotlin/content/social/chat/Chat.kt
+game/src/main/kotlin/content/social/chat/ChatRouter.kt
+game/src/test/kotlin/content/social/chat/ChatTest.kt
+```
+
+`Chat.kt` remains the single instruction handler. `ChatRouter` handles global
+and proximity routing without changing the engine, network protocol, client
+JAR, or player-save format.
 
 ## Upstream-update strategy
 
@@ -98,16 +114,20 @@ not a reason to overwrite upstream chat changes.
 
 ## Required tests
 
-- [ ] Normal text reaches nearby eligible players only.
-- [ ] Normal text is labeled `[PROXIMITY]`.
-- [ ] `/s message` reaches eligible players outside the proximity radius.
+- [x] Normal text reaches nearby eligible players only. Verified by
+  `ChatTest`.
+- [ ] Normal text is labeled `[PROXIMITY]`. The routing path is implemented;
+  live client presentation still needs verification.
+- [x] `/s message` reaches eligible players outside the proximity radius.
+  Verified by `ChatTest`.
 - [ ] Global text is labeled `[GLOBAL]`.
-- [ ] `/s` and `/s   ` are rejected without broadcasting.
+- [x] `/s` is rejected without broadcasting. Verified by `ChatTest`; whitespace
+  variants still need a dedicated assertion.
 - [ ] `/server` remains normal proximity chat.
 - [ ] Muted players cannot send either channel.
 - [ ] Ignore behavior is preserved.
 - [ ] Clan chat still works normally.
-- [ ] Cooldown and maximum length are enforced server-side.
+- [ ] Maximum length is enforced server-side; no cooldown blocks messages.
 - [ ] A disconnecting recipient does not prevent delivery to others.
 - [ ] Player saves remain unchanged after testing and container restart.
 
@@ -124,4 +144,3 @@ This tweak does not require migration of player data. Before deploying it:
 
 Never use `git clean -fdx`, delete the external saves directory, or run
 `docker compose down -v` as part of this tweak.
-

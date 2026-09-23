@@ -1,7 +1,5 @@
 package content.social.chat
 
-import content.area.wilderness.daemonheim.DungeoneeringParty.Companion.dungeonMembers
-import content.area.wilderness.daemonheim.DungeoneeringParty.Companion.inDungeoneering
 import content.social.clan.chatType
 import content.social.clan.clan
 import content.social.ignore.ignores
@@ -12,7 +10,6 @@ import world.gregs.voidps.cache.secure.Huffman
 import world.gregs.voidps.engine.Script
 import world.gregs.voidps.engine.client.instruction.instruction
 import world.gregs.voidps.engine.client.message
-import world.gregs.voidps.engine.client.update.view.Viewport.Companion.VIEW_RADIUS
 import world.gregs.voidps.engine.entity.character.player.Players
 import world.gregs.voidps.engine.entity.character.player.chat.ChatType
 import world.gregs.voidps.engine.entity.character.player.name
@@ -24,9 +21,10 @@ import world.gregs.voidps.network.client.instruction.ChatTypeChange
 import world.gregs.voidps.network.login.protocol.encode.clanChat
 import world.gregs.voidps.network.login.protocol.encode.privateChatFrom
 import world.gregs.voidps.network.login.protocol.encode.privateChatTo
-import world.gregs.voidps.network.login.protocol.encode.publicChat
 
 class Chat(val huffman: Huffman) : Script {
+
+    private val router = ChatRouter(huffman)
 
     init {
         playerDespawn {
@@ -62,30 +60,16 @@ class Chat(val huffman: Huffman) : Script {
                 player.sendMuteMessage()
                 return@instruction
             }
-            val text = if (text.all { it.isUpperCase() }) {
-                text.toTitleCase()
-            } else {
-                text.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-            }
-
             when (player.chatType) {
                 "public" -> {
-                    AuditLog.event(player, "said", text)
-                    ChatHistory.add(player, "public", text)
-                    val compressed = huffman.compress(text)
-                    if (player.inDungeoneering) {
-                        for (member in player.dungeonMembers) {
-                            if (!member.ignores(player)) {
-                                member.client?.publicChat(player.index, effects, player.rights.ordinal, compressed)
-                            }
-                        }
-                    } else {
-                        Players.filter { it.tile.within(player.tile, VIEW_RADIUS) && !it.ignores(player) }.forEach {
-                            it.client?.publicChat(player.index, effects, player.rights.ordinal, compressed)
-                        }
-                    }
+                    router.send(player, text, effects)
                 }
                 "clan" -> {
+                    val text = if (text.all { it.isUpperCase() }) {
+                        text.toTitleCase()
+                    } else {
+                        text.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                    }
                     val clan = player.clan
                     if (clan == null) {
                         player.message("You must be in a clan chat to talk.", ChatType.ClanChat)

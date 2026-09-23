@@ -1,7 +1,8 @@
 # Global and Proximity Chat — Development Plan
 
-> **Status:** Planned. The existing chat architecture has been inspected; no
-> feature code has been changed and no gameplay behavior is verified yet.
+> **Status:** Implemented locally and focused-tested; not yet deployed to
+> Hetzner production. Live client presentation and two-account production smoke
+> testing remain outstanding.
 >
 > **Purpose:** Let players use normal chat for nearby players and `/s message`
 > for a server-wide message with clear `[PROXIMITY]` or `[GLOBAL]` labels.
@@ -86,8 +87,8 @@ handler and depend on generated script load order.
   mode continues to use the existing clan rules unless the final implementation
   explicitly decides that `/s` is a global escape command in every mode.
 - Muted players cannot send either chat mode.
-- Global chat must have a server-side cooldown and length limit. Exact values
-  remain tuning points until live testing.
+- Global chat must enforce a maximum message length. A cooldown is intentionally
+  out of scope for this version.
 - Global broadcasts must not write player data, modify inventory, award items,
   or depend on PostgreSQL.
 
@@ -190,13 +191,12 @@ document them. Candidate settings:
 
 ```properties
 chat.global.enabled=true
-chat.global.cooldown.seconds=3
 chat.global.max.length=80
 chat.global.minimum.rights=PLAYER
 ```
 
-The default should allow ordinary players to use global chat, subject to mute,
-cooldown, and validation. Staff bypasses are optional and must not silently
+The default should allow ordinary players to use global chat, subject to mute
+and validation. Staff bypasses are optional and must not silently
 bypass mutes or abuse safeguards without an explicit decision.
 
 Potential implementation helpers:
@@ -213,7 +213,7 @@ Potential implementation helpers:
 - [ ] Preserve the existing mute check before any routing.
 - [ ] Apply a maximum message length before broadcasting.
 - [ ] Reject empty `/s` messages without sending an empty line.
-- [ ] Add a global-chat cooldown to prevent flooding the entire server.
+- [ ] Confirm that no cooldown is applied; retain only the message-length limit.
 - [ ] Decide whether global chat respects recipient ignore lists; preferred MVP
   behavior is yes.
 - [ ] Record `global` and `proximity` as distinct `ChatHistory` types.
@@ -233,7 +233,6 @@ Potential implementation helpers:
 | Alice types `/server` | It remains proximity text | Unit test |
 | Muted Alice attempts either mode | Existing mute message; no recipients receive text | Existing mute tests plus new tests |
 | Recipient ignores Alice | Recipient receives no eligible chat, according to locked policy | Test |
-| Global cooldown is exceeded | Later message is rejected or delayed with feedback | Test |
 | Clan chat remains active | Existing clan behavior is unchanged | Existing clan tests and regression test |
 | Recipient disconnects during broadcast | Other recipients still receive the message | Failure-path test or controlled runtime check |
 | Server restart after chat activity | Chat is gone; player saves remain intact | Runtime smoke test and save backup verification |
@@ -250,14 +249,14 @@ Potential implementation helpers:
 - [ ] Confirm global ignore-list behavior.
 - [ ] Inspect the live client presentation of `Client.message(..., ChatType.Chat,
   name=...)` with a temporary non-persistent test message.
-- [ ] Lock cooldown and maximum-length values.
+- [ ] Lock the maximum-length value and confirm that global chat has no cooldown.
 - [ ] **Verify:** Write the final decisions into this plan before coding.
 
 ### Phase 1 — Content-script MVP
 
-- [ ] Implement routing in the existing chat script boundary or one dedicated
+- [x] Implement routing in the existing chat script boundary or one dedicated
   content script without changing engine/network protocol code.
-- [ ] If a new script class is created, confirm it is under the configured
+- [x] The new router is under the configured
   `content` package so Void's automatic script discovery includes it.
 - [ ] If generated script metadata becomes stale, run the documented metadata
   regeneration task before rebuilding; do not manually delete unrelated build
@@ -265,15 +264,15 @@ Potential implementation helpers:
 - [ ] Add exact `/s ` detection and prefix stripping.
 - [ ] Add `[PROXIMITY]` and `[GLOBAL]` formatting.
 - [ ] Preserve dungeon proximity behavior and clan routing.
-- [ ] Add mute, length, empty-message, ignore, and cooldown handling.
+- [ ] Add mute, length, empty-message, and ignore handling without a cooldown.
 - [ ] Record both message types in `ChatHistory`.
 - [ ] **Verify:** Run focused chat tests and compile `:game:build -x test`.
 
 ### Phase 2 — Automated regression coverage
 
-- [ ] Add tests under `game/src/test/kotlin/content/social/chat/` for routing and
+- [x] Add tests under `game/src/test/kotlin/content/social/chat/` for routing and
   formatting.
-- [ ] Test global recipients outside `VIEW_RADIUS`.
+- [x] Test global recipients outside `VIEW_RADIUS`.
 - [ ] Test no duplicate sends and no accidental clan-chat regression.
 - [ ] Test disconnect-safe recipient iteration.
 - [ ] **Verify:** Focused tests pass, then the relevant full test task passes.
@@ -287,7 +286,7 @@ Potential implementation helpers:
 - [ ] Connect using the tracked `client-hetzner/client.bat` or the shared ZIP.
 - [ ] Test proximity chat with two accounts.
 - [ ] Test global chat with two accounts in different regions.
-- [ ] Test mute, ignore, cooldown, and clan chat behavior.
+- [ ] Test mute, ignore, no-cooldown behavior, and clan chat behavior.
 - [ ] **Verify:** Save a small player change, restart only the container, and
   confirm the change persists.
 
@@ -298,13 +297,13 @@ Potential implementation helpers:
 - [ ] Add a staff-only global announcement command if genuinely needed.
 - [ ] Add `/g` as an optional alias only after `/s` is stable.
 - [ ] Add an opt-out or chat-filter integration if the client supports it.
-- [ ] **Verify:** Each addition has its own test and does not weaken cooldown,
-  mute, ignore, or save-safety behavior.
+- [ ] **Verify:** Each addition has its own test and does not weaken mute,
+  ignore, or save-safety behavior.
 
 ## 11. Open tuning points
 
 - Should global messages appear as overhead text, chat-box text, or both?
 - Should clan-mode `/s message` always escape to global chat?
-- What are the final cooldown and message-length values?
+- Should the maximum message length remain 80 characters?
 - Should staff have a separate announcement channel rather than a bypass?
 - Should global chat be disabled in specific areas or activities?
