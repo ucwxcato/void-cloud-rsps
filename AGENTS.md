@@ -65,6 +65,7 @@ The tracked client bundle is in `client-hetzner/`:
 
 - `client-hetzner/void-client-1.2.0.jar`
 - `client-hetzner/client.bat`
+- `client-hetzner/void-client-hetzner-windows.zip` — distributable package for friends
 
 Run `client.bat` from that folder on Windows. The client must receive its
 server address as the client's command-line option `-ip`; the Java system
