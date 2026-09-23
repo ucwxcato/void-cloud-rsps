@@ -58,3 +58,4 @@ gradle-app.setting
 /gradle/
 *.lock
 /game.properties
+.env

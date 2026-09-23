@@ -1,14 +1,15 @@
 version: "3.8"
 services:
   void:
-    image: greghib/void
+    build: .
+    image: void-cloud-rsps:personal-tweaks
     volumes:
       # Required: use a persistent directory outside the Git checkout.
       - ${VOID_SAVES_DIR:?Set VOID_SAVES_DIR to a persistent saves directory}:/app/data/saves
     environment:
       storage: database
       storage.database.username: postgres
-      storage.database.password: password
+      storage.database.password: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       storage.database.driver: org.postgresql.Driver
       storage.database.jdbcUrl: jdbc:postgresql://db:5432/game?reWriteBatchedInserts=true
     ports:
@@ -23,7 +24,7 @@ services:
     environment:
       POSTGRES_DB: game
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - void-db-data:/var/lib/postgresql/data
     networks:
