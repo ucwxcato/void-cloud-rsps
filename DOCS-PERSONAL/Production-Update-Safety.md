@@ -20,7 +20,7 @@ For local development, explicitly point the variable at the repository directory
 export VOID_SAVES_DIR="$PWD/data/saves"
 ```
 
-The Compose configuration also uses a named Docker volume called `void-db-data` for PostgreSQL. This volume must not be removed during normal updates.
+The current production design uses file storage for player data. If an old `void-db-data` PostgreSQL volume exists, leave it untouched until it has been explicitly reviewed; it is not the source of player saves.
 
 ## Required pre-update backup
 
@@ -32,13 +32,9 @@ mkdir -p "$backup_dir"
 tar -C /srv/void-cloud-rsps-data -czf "$backup_dir/saves.tar.gz" saves
 ```
 
-Also back up the PostgreSQL database before changes that may affect storage or migrations:
+The normal file-storage deployment does not require a PostgreSQL backup. Only create a database dump if PostgreSQL is deliberately reintroduced for a separately tested feature.
 
-```bash
-docker compose exec -T db pg_dump -U postgres game > "$backup_dir/game.sql"
-```
-
-Confirm that both backup files exist before continuing.
+Confirm that the saves backup exists before continuing.
 
 ## Safe update sequence
 
@@ -60,8 +56,8 @@ The Git update changes application code only. The external saves directory and `
 
 - `git clean -fdx` or any command that deletes ignored files.
 - `rm -rf data/saves` or deletion of the external saves directory.
-- `docker compose down -v`, because `-v` removes the PostgreSQL named volume.
-- Recreating the server from a fresh checkout without restoring the external saves directory and database volume/backup.
+- `docker compose down -v`, because `-v` can remove legacy Docker volumes.
+- Recreating the server from a fresh checkout without restoring the external saves directory and its backup.
 - Starting Compose without `VOID_SAVES_DIR` set on production.
 
 If a deployment process copies a new checkout to the server, copy only application files and keep `/srv/void-cloud-rsps-data` untouched.

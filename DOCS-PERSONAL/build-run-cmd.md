@@ -1,25 +1,59 @@
-# Build & Run Commands
+# Build and Run Commands
 
-## Build
+## Compile on Hetzner
+
+The Hetzner server has approximately 4 GB RAM. Use the repository's conservative Gradle and Kotlin memory settings.
 
 ```bash
-# Standard build (skip tests for faster iteration)
+cd /opt/void
 ./gradlew --stop
-./gradlew :game:build -x test
-
-# If spotless/ktlint crashes with ClosedByInterruptException  
-# (known Gradle 9.6 / spotless 7.0.4 / ktlint compat issue):
-./gradlew :game:build -x test -x spotlessKotlinCheck -x spotlessKotlinGradleCheck
-
+./gradlew :game:build -x test --no-daemon
 ```
-    
-## Run server
-./gradlew --stop
+
+A successful file-storage build produces:
+
+```text
+game/build/libs/void-server-dev.jar
+```
+
+If compilation fails with an out-of-memory error, do not start multiple builds. Check memory and compiler processes first:
+
 ```bash
+free -h
+pgrep -af 'GradleDaemon|KotlinCompileDaemon' || true
+```
+
+Only stop stale compiler daemons when no build is running.
+
+## Docker image and server
+
+Ensure the cache exists under `data/cache/` before building the image. Production player saves are mounted from `/srv/void-cloud-rsps-data/saves/`; they are not part of the image.
+
+```bash
+docker compose config --quiet
+docker compose build void
+docker compose up -d
+docker compose ps
+docker compose logs --tail=200 void
+```
+
+Production storage settings:
+
+```properties
+storage.type=files
+storage.players.path=./data/saves/
+```
+
+## Run directly without Docker
+
+For local development only:
+
+```bash
+./gradlew --stop
 ./gradlew :game:run
 ```
 
-## Run client
+## Client
 
 ```bash
 java -jar client.jar
@@ -27,7 +61,7 @@ java -jar client.jar
 
 ## Notes
 
-- Requires JDK 21 or newer (this repo uses JDK 25).
-- Cache files (`.idx`, `.dat2`, `.dylib`, `.dll`) must be present under `data/cache/` — they are gitignored. Download the cache zip from https://mega.nz/folder/ZMN2AQaZ#4rJgfzbVW0_mWsr1oPLh1A and extract there.
-- `./gradlew` requires the wrapper jar — see `gradle/wrapper/`. If the wrapper jar is missing, see `DOCS/syncing-upstream.md` §wrapper bootstrap.
-- For DPI scaling issues on Windows, see `DOCS/dpi-scaling.md` (or the run-client.bat helper).
+- Requires JDK 21 or newer.
+- Cache files (`.idx`, `.dat2`, `.dylib`, `.dll`) are runtime assets and are not expected to be tracked by Git.
+- Do not use `git clean -fdx` on production.
+- Never put production saves inside a disposable build or Docker image.

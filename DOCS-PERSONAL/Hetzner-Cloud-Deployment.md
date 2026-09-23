@@ -1,6 +1,6 @@
 # Hetzner Cloud Deployment Guide
 
-This guide runs the `personal-tweaks` branch from `/opt/void/` with local Docker builds and file storage.
+This guide runs the `personal-tweaks` branch from `/opt/void/` with local Docker builds and file storage. Compile first with `./gradlew :game:build -x test --no-daemon`; the expected artifact is `game/build/libs/void-server-dev.jar`.
 
 ## Production storage model
 

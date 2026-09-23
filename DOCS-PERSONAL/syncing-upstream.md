@@ -1,9 +1,11 @@
-# Syncing Upstream (GregHib/void) Without Losing Local Tweaks
+# Syncing Upstream (GregHib/void) Without Losing Personal Tweaks
 
-This repo (`alexfemcat/void-rsps-server-linux`) is a fork of
+This repo (`ucwxcato/void-cloud-rsps`) is a fork of
 [`GregHib/void`](https://github.com/GregHib/void). This doc tells coding
 assistants exactly how to pull new content/fixes from upstream **without**
 overwriting the user's custom code, characters, or game data.
+
+The production branch is `personal-tweaks`, and production uses file storage. Live saves remain outside the checkout at `/srv/void-cloud-rsps-data/saves/`.
 
 If you're an assistant reading this: read it fully before running `git pull`,
 `git merge`, or `git rebase`. The user has things they care about.
