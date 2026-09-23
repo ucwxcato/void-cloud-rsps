@@ -1,119 +1,138 @@
 # Personal Branch Update Plan
 
-This guide describes how to bring new content from `main` into the personal `personal-tweaks` branch while keeping personal changes safe.
+This guide updates production from upstream content while preserving the `personal-tweaks` branch and all live file-storage data.
 
 ## Branch roles
 
-- `main`: upstream server content and shared changes.
-- `personal-tweaks`: personal configuration, gameplay changes, and server-specific tweaks.
-- `origin`: the remote Git repository.
+- `upstream/main`: GregHib's source of new content and fixes.
+- Local `main`: clean upstream sync branch.
+- `personal-tweaks`: personal code/configuration and production branch.
+- `origin`: the personal GitHub fork.
 
-Keep production-specific secrets, credentials, world data, logs, and runtime files outside Git whenever possible.
+Player data is not a Git branch. It lives outside the checkout at `/srv/void-cloud-rsps-data/saves/`.
+
+The server uses:
+
+```properties
+storage.type=files
+storage.players.path=./data/saves/
+```
+
+The Docker bind mount maps the external directory to `/app/data/saves/`.
 
 ## Before updating
 
-1. Announce maintenance to players and stop accepting new logins.
-2. Stop the server cleanly.
-3. Back up the database, world/save data, configuration files, and the current server build.
-4. Confirm the working tree is clean:
+1. Announce maintenance and stop accepting new logins.
+2. Stop the game server cleanly.
+3. Verify `/srv/void-cloud-rsps-data/saves/` exists.
+4. Back up the external saves:
 
-   ```powershell
-   git status
+   ```bash
+   backup_dir='/srv/void-cloud-rsps-backups/'$(date +%Y-%m-%d_%H-%M-%S)
+   mkdir -p "$backup_dir"
+   tar -C /srv/void-cloud-rsps-data -czf "$backup_dir/saves.tar.gz" saves
+   test -s "$backup_dir/saves.tar.gz"
    ```
 
-5. If there are unfinished local changes, commit them before updating:
+5. Review `git status --short --branch`.
+6. Commit intended personal source changes before syncing. Never commit secrets, runtime saves, or `.env`.
 
-   ```powershell
-   git add .
-   git commit -m "Save personal server tweaks before upstream update"
-   ```
+## Sync upstream content
 
-## Update the personal branch
+Fetch upstream without changing the working tree:
 
-Fetch the latest remote branches:
-
-```powershell
-git fetch origin
+```bash
+git fetch upstream
 ```
 
-Update `personal-tweaks` with the latest `main` changes. Rebasing keeps the branch history easy to follow:
+Update the clean local upstream branch:
 
-```powershell
+```bash
+git switch main
+git merge --ff-only upstream/main
+```
+
+Bring the updated upstream code into the personal branch:
+
+```bash
 git switch personal-tweaks
-git rebase origin/main
+git merge --no-ff main -m 'sync: update personal branch from upstream'
 ```
+
+A merge is preferred for the shared personal branch. Never resolve conflicts by deleting or replacing the external save directory.
 
 If conflicts occur:
 
-```powershell
+```bash
 git status
-# Edit each conflicted file and keep the correct combination of upstream and personal changes
-git add <resolved-file>
-git rebase --continue
+git diff --name-only --diff-filter=U
 ```
 
-To cancel the update without losing the branch state from before the rebase:
+Read each conflict before resolving it. To cancel an unfinished merge:
 
-```powershell
-git rebase --abort
+```bash
+git merge --abort
 ```
 
-Do not use `git push --force` casually. If the rebased branch is already shared remotely, use the team-approved force-push procedure or merge `origin/main` instead.
+## Build and verify
 
-## Build and test before deployment
+Before deployment:
 
-1. Review the changes introduced by upstream.
-2. Run the repository's build and test commands.
-3. Confirm configuration files still point to the correct production database, ports, paths, and Java/runtime version.
-4. Check migrations, plugin changes, item/NPC data changes, and save-format changes for compatibility.
-5. Test login, character loading, combat, trading, banking, persistence, and any personal features on a staging or local copy when possible.
+- Confirm `storage.type=files`.
+- Confirm `storage.players.path=./data/saves/`.
+- Confirm the Compose bind mount targets `/srv/void-cloud-rsps-data/saves`.
+- Confirm cache files exist under `data/cache/`.
+- Build and run relevant tests.
+- Record `git rev-parse --short HEAD`.
 
-## Deploy to the Hetzner server
+## Deploy to Hetzner
 
-1. Create a deployment backup and record the Git commit being deployed:
+Push the tested branch:
 
-   ```powershell
-   git rev-parse --short HEAD
-   ```
+```bash
+git push origin personal-tweaks
+```
 
-2. Upload or pull the tested build on the server.
-3. Replace only the intended application files; preserve production data and secrets.
-4. Start the server using the normal service/process command.
-5. Watch startup logs for errors and verify a real client can connect.
-6. Perform a short smoke test before announcing that maintenance is complete.
+On Hetzner:
 
-## Rollback plan
-
-If the update causes problems:
-
-1. Stop the server.
-2. Restore the previous application build and configuration backup.
-3. Restore database/world data only if the new version changed data incompatibly; make a copy of the failed state first.
-4. Restart the server and verify player access.
-5. Record the failed commit, error logs, and symptoms before attempting another update.
-
-For a Git-only rollback locally, identify the last known-good commit and create a recovery branch before making further changes:
-
-```powershell
+```bash
+cd /opt/void
+docker compose stop void
+git fetch origin
 git switch personal-tweaks
-git branch recovery-before-rollback
-git reset --hard <known-good-commit>
+git pull --ff-only origin personal-tweaks
+./gradlew :game:build -x test --no-daemon
+docker compose build void
+docker compose up -d
+docker compose logs --tail=200 void
 ```
 
-Only reset a branch after confirming that all required personal changes are committed and backed up.
+The external saves remain outside Git and must not be cleaned, reset, or overwritten.
 
-## Recommended update checklist
+## Rollback
+
+If deployment fails:
+
+1. Keep the pre-update saves backup.
+2. Stop the game container.
+3. Return to the previous known-good code commit.
+4. Rebuild and restart.
+5. Restore saves only if runtime data was actually damaged or made incompatible.
+6. Preserve failed logs and backups before restoring anything.
+
+## Checklist
 
 - [ ] Maintenance announced
-- [ ] Server stopped cleanly
-- [ ] Database/world/configuration/build backups completed
-- [ ] Personal changes committed
-- [ ] `git fetch origin` completed
-- [ ] `personal-tweaks` rebased onto `origin/main`
-- [ ] Conflicts reviewed and resolved
-- [ ] Build and tests passed
-- [ ] Production configuration checked
-- [ ] Tested commit recorded
-- [ ] Server deployed and smoke-tested
-- [ ] Logs monitored after startup
-- [ ] Players notified
+- [ ] Game stopped cleanly
+- [ ] External saves backup verified
+- [ ] Working tree reviewed
+- [ ] `git fetch upstream` completed
+- [ ] Local `main` fast-forwarded to `upstream/main`
+- [ ] `personal-tweaks` merged from local `main`
+- [ ] Storage remains `files`
+- [ ] Cache files present
+- [ ] Build passed
+- [ ] Branch pushed to `origin`
+- [ ] Production rebuilt
+- [ ] Login/save/logout/relogin test passed
+- [ ] Logs monitored
