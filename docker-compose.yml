@@ -3,7 +3,9 @@ services:
   void:
     image: greghib/void
     volumes:
-      - ./data/saves/:/app/data/saves
+      # In production, set VOID_SAVES_DIR to a directory outside the Git checkout.
+      # The default keeps local development working as before.
+      - ${VOID_SAVES_DIR:-./data/saves}:/app/data/saves
     environment:
       storage: database
       storage.database.username: postgres
@@ -23,8 +25,13 @@ services:
       POSTGRES_DB: game
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    volumes:
+      - void-db-data:/var/lib/postgresql/data
     networks:
       - internal_network
 networks:
   internal_network:
     driver: bridge
+
+volumes:
+  void-db-data:
