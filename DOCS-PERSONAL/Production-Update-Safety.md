@@ -12,7 +12,13 @@ export VOID_SAVES_DIR=/srv/void-cloud-rsps-data/saves
 docker compose up -d
 ```
 
-Use the same `VOID_SAVES_DIR` value every time Compose is run. Do not rely on the repository's `./data/saves` default for production.
+Use the same `VOID_SAVES_DIR` value every time Compose is run. The Compose file intentionally refuses to start if this variable is missing, so a production deployment cannot silently fall back to a directory inside the Git checkout.
+
+For local development, explicitly point the variable at the repository directory before starting Compose:
+
+```bash
+export VOID_SAVES_DIR="$PWD/data/saves"
+```
 
 The Compose configuration also uses a named Docker volume called `void-db-data` for PostgreSQL. This volume must not be removed during normal updates.
 

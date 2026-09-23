@@ -3,9 +3,8 @@ services:
   void:
     image: greghib/void
     volumes:
-      # In production, set VOID_SAVES_DIR to a directory outside the Git checkout.
-      # The default keeps local development working as before.
-      - ${VOID_SAVES_DIR:-./data/saves}:/app/data/saves
+      # Required: use a persistent directory outside the Git checkout.
+      - ${VOID_SAVES_DIR:?Set VOID_SAVES_DIR to a persistent saves directory}:/app/data/saves
     environment:
       storage: database
       storage.database.username: postgres
