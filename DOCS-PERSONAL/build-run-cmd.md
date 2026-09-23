@@ -55,13 +55,24 @@ For local development only:
 
 ## Client
 
-```bash
-java -jar client.jar
+The repository includes the working Windows client launcher and JAR in
+`client-hetzner/`. Run this from Windows after the Hetzner container is up:
+
+```bat
+client-hetzner\client.bat
 ```
+
+The launcher uses the desktop client's real command-line options:
+
+```bash
+java -Dsun.java2d.uiScale=1.0 -Dsun.java2d.dpiaware=false -jar void-client-1.2.0.jar -ip 2.28.141.196 -p 43594
+```
+
+Do not replace `-ip` with `-Dvoid.server`; this client JAR expects `-ip`.
 
 ## Notes
 
 - Requires JDK 21 or newer.
-- Cache files (`.idx`, `.dat2`, `.dylib`, `.dll`) are runtime assets and are not expected to be tracked by Git.
+- Cache files (`.idx`, `.dat2`, `.dylib`, `.dll`) are runtime assets and are not expected to be tracked by Git. The client JAR under `client-hetzner/` is intentionally tracked.
 - Do not use `git clean -fdx` on production.
 - Never put production saves inside a disposable build or Docker image.

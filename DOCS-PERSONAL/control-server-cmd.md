@@ -86,6 +86,18 @@ docker compose ps
 
 The game server uses TCP port `43594`. Port `8080` is only used if the web server is enabled.
 
+## Connect with the Windows client
+
+From the repository on Windows, run:
+
+```text
+client-hetzner\client.bat
+```
+
+This tracked launcher connects to `2.28.141.196:43594`. Keep the server
+running before launching it. The desktop client requires `-ip` and `-p` in the
+launcher; `-Dvoid.server` will not configure this JAR.
+
 ## 5. Stop the server
 
 Stop only the Void game container cleanly:

@@ -59,6 +59,27 @@ The personal Compose setup builds the local checkout. It must not use GregHib's 
 - Web port: TCP `8080` only when the web server is enabled
 - PostgreSQL port `5432` must not be exposed publicly
 
+## Working Hetzner client
+
+The tracked client bundle is in `client-hetzner/`:
+
+- `client-hetzner/void-client-1.2.0.jar`
+- `client-hetzner/client.bat`
+
+Run `client.bat` from that folder on Windows. The client must receive its
+server address as the client's command-line option `-ip`; the Java system
+property `-Dvoid.server=...` does not work for this desktop JAR.
+
+The working launcher connects to `2.28.141.196:43594` using:
+
+```bat
+java -Dsun.java2d.uiScale=1.0 -Dsun.java2d.dpiaware=false -jar void-client-1.2.0.jar -ip 2.28.141.196 -p 43594
+```
+
+If the client cannot connect, first confirm the Void container is running and
+test TCP port `43594` from the client PC. Do not expose port `8080` unless the
+web server is intentionally enabled.
+
 Before Docker image creation, the cache must exist under `data/cache/`. Cache files are runtime assets and are not expected to be stored in Git.
 
 ## Build memory settings

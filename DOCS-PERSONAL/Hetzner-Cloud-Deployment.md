@@ -115,6 +115,17 @@ Do not start Docker until the Compose file is aligned with file storage and the 
 
 The game server uses TCP port `43594`. Port `8080` is only needed when the web client is enabled.
 
+## Client connection
+
+The working Windows client is committed in `client-hetzner/`. After the server
+is running, launch `client-hetzner/client.bat`. It connects to the public
+Hetzner address `2.28.141.196` on TCP port `43594` using the desktop client's
+`-ip` and `-p` command-line options.
+
+The Java property `-Dvoid.server=...` is not valid for this client JAR. If the
+client fails to connect, verify the container with `docker compose ps` and
+test TCP `43594` from the Windows PC before changing firewall rules.
+
 ## 7. Normal update procedure
 
 ```bash

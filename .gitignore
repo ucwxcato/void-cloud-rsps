@@ -14,6 +14,8 @@ scripts.txt
 
 # tools
 *.jar
+!client-hetzner/
+!client-hetzner/*.jar
 *.zip
 /data/dump/
 /data/saves/
