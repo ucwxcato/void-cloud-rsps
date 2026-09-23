@@ -8,6 +8,7 @@ services:
       - ${VOID_SAVES_DIR:?Set VOID_SAVES_DIR to a persistent saves directory}:/app/data/saves
     environment:
       storage.type: files
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx3g -XX:MaxMetaspaceSize=512m"
     ports:
       - "43594:43594"
       - "8080:8080"
