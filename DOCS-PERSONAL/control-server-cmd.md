@@ -70,6 +70,14 @@ Check CPU and memory usage:
 docker stats
 ```
 
+For a continuously updating view every second, including host memory/swap and the Void container:
+
+```bash
+watch -n 1 'free -h; echo; docker stats --no-stream'
+```
+
+Press `Ctrl+C` to exit the live monitor.
+
 Check the container's published ports:
 
 ```bash
