@@ -181,10 +181,10 @@ If a deployment fails, preserve the failed logs and save backup, stop the game c
   records the tweak's intended behavior, implementation boundary, tests, and
   safe upstream-update strategy. Keep these documents separate from general
   deployment and planning documentation.
-- `TWEAKS-PERSONAL/global-chat.md`: global `/s` chat and labeled proximity-chat
+- `TWEAKS-PERSONAL/global-chat.md`: global `/g` chat and labeled proximity-chat
   design, including how to preserve it during upstream merges.
 - `DOCS-PERSONAL/Hetzner-Cloud-Deployment.md`: first deployment and operations.
 - `DOCS-PERSONAL/Production-Update-Safety.md`: save backup and persistence rules.
 - `DOCS-PERSONAL/planned/Personal-Branch-Update-Plan.md`: upstream synchronization and release workflow.
-- `DOCS-PERSONAL/planned/global-proximity-chat-plan.md`: planned `/s` global and proximity chat feature.
+- `DOCS-PERSONAL/planned/global-proximity-chat-plan.md`: planned `/g` global and proximity chat feature.
 - `DOCS-PERSONAL/build-run-cmd.md`: build command notes.

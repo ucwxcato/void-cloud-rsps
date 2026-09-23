@@ -29,7 +29,7 @@ internal class ChatTest : WorldTest() {
         val (sender, senderClient) = createClient("alice", Tile(3200, 3200))
         val (_, recipientClient) = createClient("bob", Tile(3300, 3300))
 
-        sender.instructions.send(ChatPublic("/s welcome everyone", 0))
+        sender.instructions.send(ChatPublic("/g welcome everyone", 0))
         tick()
 
         verify { senderClient.message("[GLOBAL] alice: Welcome everyone", ChatType.Chat.id) }
@@ -55,10 +55,10 @@ internal class ChatTest : WorldTest() {
         val (sender, senderClient) = createClient("alice", Tile(3200, 3200))
         val (_, recipientClient) = createClient("bob", Tile(3300, 3300))
 
-        sender.instructions.send(ChatPublic("/s", 0))
+        sender.instructions.send(ChatPublic("/g", 0))
         tick()
 
-        verify { senderClient.message("Usage: /s <message>", ChatType.Game.id) }
+        verify { senderClient.message("Usage: /g <message>", ChatType.Game.id) }
         verify(exactly = 0) { recipientClient.message(any(), any()) }
     }
 }

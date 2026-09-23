@@ -4,7 +4,7 @@
 > Hetzner production. Live client presentation and two-account production smoke
 > testing remain outstanding.
 >
-> **Purpose:** Let players use normal chat for nearby players and `/s message`
+> **Purpose:** Let players use normal chat for nearby players and `/g message`
 > for a server-wide message with clear `[PROXIMITY]` or `[GLOBAL]` labels.
 >
 > **Authority:** This document owns the feature behavior, implementation order,
@@ -22,7 +22,7 @@ Players type normally to speak to nearby players:
 [PROXIMITY] Alice: Hello nearby players
 ```
 
-Players type `/s message` to speak to everyone online:
+Players type `/g message` to speak to everyone online:
 
 ```text
 [GLOBAL] Alice: Welcome to the server!
@@ -32,7 +32,7 @@ Complete when:
 
 ```text
 player types normal text -> nearby players see [PROXIMITY] text
-player types /s text -> every eligible online player sees [GLOBAL] text
+player types /g text -> every eligible online player sees [GLOBAL] text
 mute/rate-limit/invalid input -> no broadcast and clear feedback
 restart/deploy -> no player save data is changed
 ```
@@ -68,7 +68,7 @@ when the server starts. See:
 
 **Conclusion:** the feature is suitable for a Void content-level Kotlin
 script, and does not require an engine, network protocol, or client-JAR
-change. It is not configuration-only: `/s` must inspect the executable
+change. It is not configuration-only: `/g` must inspect the executable
 `ChatPublic` instruction, and the current handler is owned by
 `game/src/main/kotlin/content/social/chat/Chat.kt`. The implementation should
 therefore either make a small change in that script or extract its handler into
@@ -77,15 +77,15 @@ handler and depend on generated script load order.
 
 ## 2. Locked decisions
 
-- `/s` means global only when it is followed by whitespace and non-empty text.
-  This avoids treating words such as `/server` as global chat.
+- `/g` means global only when it is followed by whitespace and non-empty text.
+  This avoids treating words such as `/global` as global chat.
 - Global chat is server-side and does not require a client JAR change. The
   existing JAR can display a normal server message with a `[GLOBAL]` prefix.
 - Normal public chat remains proximity chat. Its visible text receives a
   `[PROXIMITY]` prefix.
 - Clan chat remains separate. A message sent while the client is in clan-chat
   mode continues to use the existing clan rules unless the final implementation
-  explicitly decides that `/s` is a global escape command in every mode.
+  explicitly decides that `/g` is a global escape command in every mode.
 - Muted players cannot send either chat mode.
 - Global chat must enforce a maximum message length. A cooldown is intentionally
   out of scope for this version.
@@ -96,7 +96,7 @@ handler and depend on generated script load order.
 
 ### Goals
 
-- [ ] Add global chat using `/s `.
+- [ ] Add global chat using `/g `.
 - [ ] Label normal public messages as `[PROXIMITY]`.
 - [ ] Label global messages as `[GLOBAL]`.
 - [ ] Preserve mute checks, ignore behavior, abuse-report history, and clan chat.
@@ -148,7 +148,7 @@ order. Use one of these deliberate designs:
 2. Reject muted players using the existing mute behavior.
 3. Normalize and validate the text without changing the original message more
    than the current capitalization behavior already does.
-4. Detect `/s ` at the beginning and remove only that prefix.
+4. Detect `/g ` at the beginning and remove only that prefix.
 5. Route global text to all eligible online players.
 6. Route ordinary public text to nearby eligible players.
 7. Record the final message type in `ChatHistory`.
@@ -159,9 +159,9 @@ order. Use one of these deliberate designs:
 | Input | Route | Visible format | Notes |
 |---|---|---|---|
 | `Hello` | Nearby players | `[PROXIMITY] Alice: Hello` | Existing proximity radius |
-| `/s Hello` | All eligible players | `[GLOBAL] Alice: Hello` | Prefix is removed from visible text |
-| `/s` | None | Usage/error feedback | Must not broadcast |
-| `/server` | Proximity | `[PROXIMITY] Alice: /server` | Not a global command |
+| `/g Hello` | All eligible players | `[GLOBAL] Alice: Hello` | Prefix is removed from visible text |
+| `/g` | None | Usage/error feedback | Must not broadcast |
+| `/global` | Proximity | `[PROXIMITY] Alice: /global` | Not a global command |
 | Clan-mode normal text | Existing clan route | Existing clan format | Preserve current behavior |
 
 The exact client packet presentation must be confirmed during the spike. The
@@ -212,7 +212,7 @@ Potential implementation helpers:
 
 - [ ] Preserve the existing mute check before any routing.
 - [ ] Apply a maximum message length before broadcasting.
-- [ ] Reject empty `/s` messages without sending an empty line.
+- [ ] Reject empty `/g` messages without sending an empty line.
 - [ ] Confirm that no cooldown is applied; retain only the message-length limit.
 - [ ] Decide whether global chat respects recipient ignore lists; preferred MVP
   behavior is yes.
@@ -228,9 +228,9 @@ Potential implementation helpers:
 |---|---|---|
 | Two players nearby; Alice types normal text | Both receive `[PROXIMITY]` | Automated test and live client check |
 | Two players far apart; Alice types normal text | Far player receives nothing | Automated routing test |
-| Two players far apart; Alice types `/s hello` | Both receive `[GLOBAL] Alice: hello` | Automated test and live client check |
-| Alice types `/s` or `/s   ` | No broadcast; usage feedback | Unit test |
-| Alice types `/server` | It remains proximity text | Unit test |
+| Two players far apart; Alice types `/g hello` | Both receive `[GLOBAL] Alice: hello` | Automated test and live client check |
+| Alice types `/g` or `/g   ` | No broadcast; usage feedback | Unit test |
+| Alice types `/global` | It remains proximity text | Unit test |
 | Muted Alice attempts either mode | Existing mute message; no recipients receive text | Existing mute tests plus new tests |
 | Recipient ignores Alice | Recipient receives no eligible chat, according to locked policy | Test |
 | Clan chat remains active | Existing clan behavior is unchanged | Existing clan tests and regression test |
@@ -244,7 +244,7 @@ Potential implementation helpers:
 
 - [ ] Confirm whether `[GLOBAL]` should appear in chat-box text only or also as
   overhead text.
-- [ ] Confirm whether `/s` works while the client is in public mode only, or is
+- [ ] Confirm whether `/g` works while the client is in public mode only, or is
   an escape from clan mode too.
 - [ ] Confirm global ignore-list behavior.
 - [ ] Inspect the live client presentation of `Client.message(..., ChatType.Chat,
@@ -261,7 +261,7 @@ Potential implementation helpers:
 - [ ] If generated script metadata becomes stale, run the documented metadata
   regeneration task before rebuilding; do not manually delete unrelated build
   or runtime data.
-- [ ] Add exact `/s ` detection and prefix stripping.
+- [x] Add exact `/g ` detection and prefix stripping.
 - [ ] Add `[PROXIMITY]` and `[GLOBAL]` formatting.
 - [ ] Preserve dungeon proximity behavior and clan routing.
 - [ ] Add mute, length, empty-message, and ignore handling without a cooldown.
@@ -295,7 +295,7 @@ Potential implementation helpers:
 - [ ] Add configurable colors using existing client color-tag support if the
   base tags are readable in the chat box.
 - [ ] Add a staff-only global announcement command if genuinely needed.
-- [ ] Add `/g` as an optional alias only after `/s` is stable.
+- [x] Use `/g` as the global-chat command; `/s` is not an alias.
 - [ ] Add an opt-out or chat-filter integration if the client supports it.
 - [ ] **Verify:** Each addition has its own test and does not weaken mute,
   ignore, or save-safety behavior.
@@ -303,7 +303,7 @@ Potential implementation helpers:
 ## 11. Open tuning points
 
 - Should global messages appear as overhead text, chat-box text, or both?
-- Should clan-mode `/s message` always escape to global chat?
+- Should clan-mode `/g message` always escape to global chat?
 - Should the maximum message length remain 80 characters?
 - Should staff have a separate announcement channel rather than a bypass?
 - Should global chat be disabled in specific areas or activities?
