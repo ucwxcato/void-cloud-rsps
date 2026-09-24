@@ -1,8 +1,10 @@
 # Build and Run Commands
 
-## Compile on Hetzner
+Production is the PufferPanel-managed Void instance on the dedicated Hetzner host `95.216.71.232`, TCP `43594`. The RSPS uses PufferPanel's Host environment; do not use Docker Compose to start it.
 
-The Hetzner server has approximately 4 GB RAM. Use the repository's conservative Gradle and Kotlin memory settings.
+## Compile
+
+On the host:
 
 ```bash
 cd /opt/void
@@ -10,41 +12,43 @@ cd /opt/void
 ./gradlew :game:build -x test --no-daemon
 ```
 
-A successful file-storage build produces:
+The successful build artifact is `game/build/libs/void-server-dev.jar`. Java 21 is installed. The host has 64 GB RAM; current Gradle settings are known to build successfully, so do not alter them without a concrete need.
 
-```text
-game/build/libs/void-server-dev.jar
-```
-
-If compilation fails with an out-of-memory error, do not start multiple builds. Check memory and compiler processes first:
+For a long build, monitor from a second SSH session:
 
 ```bash
 free -h
 pgrep -af 'GradleDaemon|KotlinCompileDaemon' || true
 ```
 
-Only stop stale compiler daemons when no build is running.
+Do not start a second build while one is running.
 
-## Docker image and server
+## Deploy the JAR
 
-Ensure the cache exists under `data/cache/` before building the image. Production player saves are mounted from `/srv/void-cloud-rsps-data/saves/`; they are not part of the image.
+Announce downtime, stop server `a59b8fa2` from PufferPanel, and back up its saves first. Then replace only the JAR:
 
 ```bash
-docker compose config --quiet
-docker compose build void
-docker compose up -d
-docker compose ps
-docker compose logs --tail=200 void
+server=/srv/games/pufferpanel/servers/a59b8fa2
+cp /opt/void/game/build/libs/void-server-dev.jar "$server/void-server.jar"
+chown pufferpanel:pufferpanel "$server/void-server.jar"
 ```
 
-Production storage settings:
+Start from PufferPanel and inspect its Console. Do not replace or symlink `data/saves`; it must remain a real directory under the PufferPanel server root because Host `unshare` cannot see the external migration path.
+
+## Storage and backups
 
 ```properties
 storage.type=files
 storage.players.path=./data/saves/
 ```
 
-## Run directly without Docker
+Live saves: `/srv/games/pufferpanel/servers/a59b8fa2/data/saves/`. Back them up to `/srv/void-cloud-rsps-backups/` while the server is stopped. See `Production-Update-Safety.md` for the checked archive command and restore rules.
+
+## Cache and client
+
+The runtime cache is `/srv/games/pufferpanel/servers/a59b8fa2/data/cache/`; source cache is `/opt/void/data/cache/` and is not tracked in Git. The client connects to `95.216.71.232:43594` using `-ip` and `-p`; `client-hetzner/client.bat` now uses this address. Rebuild the distributable ZIP after the server passes its smoke test.
+
+## Local development
 
 For local development only:
 
@@ -53,28 +57,4 @@ For local development only:
 ./gradlew :game:run
 ```
 
-## Client
-
-The repository includes the working Windows client launcher and JAR in
-`client-hetzner/`. The ready-to-share package is
-`client-hetzner/void-client-hetzner-windows.zip`. Run this from Windows after
-the Hetzner container is up:
-
-```bat
-client-hetzner\client.bat
-```
-
-The launcher uses the desktop client's real command-line options:
-
-```bash
-java -Dsun.java2d.uiScale=1.0 -Dsun.java2d.dpiaware=false -jar void-client-1.2.0.jar -ip 2.28.141.196 -p 43594
-```
-
-Do not replace `-ip` with `-Dvoid.server`; this client JAR expects `-ip`.
-
-## Notes
-
-- Requires JDK 21 or newer.
-- Cache files (`.idx`, `.dat2`, `.dylib`, `.dll`) are runtime assets and are not expected to be tracked by Git. The client JAR under `client-hetzner/` is intentionally tracked.
-- Do not use `git clean -fdx` on production.
-- Never put production saves inside a disposable build or Docker image.
+Never use `git clean -fdx` on production, and never place production saves inside a disposable build or image.

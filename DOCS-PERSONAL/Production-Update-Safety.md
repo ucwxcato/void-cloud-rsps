@@ -1,69 +1,49 @@
-# Production Update Safety
+# Production Update and Save Safety
 
-## Non-negotiable save rule
+Current production is managed by PufferPanel 3 on the dedicated host `95.216.71.232`; the Void server uses PufferPanel Host mode, not Docker. Follow `Hetzner-Cloud-Deployment.md` for the complete build and deploy procedure.
 
-Player saves must never be part of the code-update operation. On the Hetzner server, keep `data/saves` in a persistent directory outside the Git checkout and mount that directory into the container with `VOID_SAVES_DIR`.
+## Authoritative data
 
-Example production setup:
+- Live saves: `/srv/games/pufferpanel/servers/a59b8fa2/data/saves/`
+- Backups: `/srv/void-cloud-rsps-backups/`
+- Old-host migration copy: `/srv/void-cloud-rsps-data/saves/` (preserved, not live)
+- PufferPanel server root: `/srv/games/pufferpanel/servers/a59b8fa2/`
 
-```bash
-sudo mkdir -p /srv/void-cloud-rsps-data/saves
-export VOID_SAVES_DIR=/srv/void-cloud-rsps-data/saves
-docker compose up -d
-```
+PufferPanel Host runs the server in an `unshare` filesystem view. The live saves must remain a real directory under the panel server root; an external symlink is invisible there. Keep code under `/opt/void` and persistent data under the panel root. Updating code/JAR must never replace `data/saves`.
 
-Use the same `VOID_SAVES_DIR` value every time Compose is run. The Compose file intentionally refuses to start if this variable is missing, so a production deployment cannot silently fall back to a directory inside the Git checkout.
+## Required backup before maintenance
 
-For local development, explicitly point the variable at the repository directory before starting Compose:
-
-```bash
-export VOID_SAVES_DIR="$PWD/data/saves"
-```
-
-The current production design uses file storage for player data. If an old `void-db-data` PostgreSQL volume exists, leave it untouched until it has been explicitly reviewed; it is not the source of player saves.
-
-## Required pre-update backup
-
-Before every update, stop the game cleanly and create a dated backup of the external saves directory:
+Announce downtime, stop the server from PufferPanel, then create and verify an archive:
 
 ```bash
+server=/srv/games/pufferpanel/servers/a59b8fa2
 backup_dir=/srv/void-cloud-rsps-backups/$(date +%Y-%m-%d_%H-%M-%S)
 mkdir -p "$backup_dir"
-tar -C /srv/void-cloud-rsps-data -czf "$backup_dir/saves.tar.gz" saves
+tar -C "$server/data" -czf "$backup_dir/saves.tar.gz" saves
+test -s "$backup_dir/saves.tar.gz"
+gzip -t "$backup_dir/saves.tar.gz"
+sha256sum "$backup_dir/saves.tar.gz"
 ```
 
-The normal file-storage deployment does not require a PostgreSQL backup. Only create a database dump if PostgreSQL is deliberately reintroduced for a separately tested feature.
+Keep a bounded retention set and copy important backups off the server when practical. Do not delete the migration archive or old-host saves until a separate rollback decision is made.
 
-Confirm that the saves backup exists before continuing.
+## Safe code update
 
-## Safe update sequence
+Build in `/opt/void` while the current runtime remains untouched. For deployment, stop via PufferPanel, create the verified backup above, replace only `void-server.jar`, then start from PufferPanel and smoke-test an existing account. Never copy a fresh checkout over the PufferPanel server root.
 
-Run the following from the server checkout after setting `VOID_SAVES_DIR`:
+## Absolute data-safety rules
 
-```bash
-docker compose stop void
-git status --short
-git fetch upstream
-git switch personal-tweaks
-git merge --no-ff upstream/main
-docker compose up -d --build
-docker compose logs --tail=100 void
-```
+Never during normal maintenance:
 
-The Git update changes application code only. The external saves directory and `void-db-data` volume remain in place.
+- Run `git clean -fdx` in `/opt/void`.
+- Delete or replace `/srv/games/pufferpanel/servers/a59b8fa2/data/saves`.
+- Replace saves with an empty folder or restore over live data while the server is running.
+- Run old-host `docker compose down -v` or restart the old production Compose stack.
+- Delete `/srv/void-cloud-rsps-data` or old-host saves/backups during the rollback window.
+- Change `storage.type=files` to a database backend without a separately tested migration.
 
-## Commands that are forbidden during normal updates
-
-- `git clean -fdx` or any command that deletes ignored files.
-- `rm -rf data/saves` or deletion of the external saves directory.
-- `docker compose down -v`, because `-v` can remove legacy Docker volumes.
-- Recreating the server from a fresh checkout without restoring the external saves directory and its backup.
-- Starting Compose without `VOID_SAVES_DIR` set on production.
-
-If a deployment process copies a new checkout to the server, copy only application files and keep `/srv/void-cloud-rsps-data` untouched.
+Before any operation that may delete, overwrite, or restore saves, state the exact target, verify a recent archive, and get explicit approval.
 
 ## Recovery
 
-If saves need to be restored, stop the game container first, preserve the current failed state, and extract the backup back into the external data directory. Restore the database dump only when the database state also needs to be rolled back.
-
-This protects save persistence across branch merges, fresh application builds, container recreation, and server updates. It does not replace off-server backups; periodically copy the backup directory to separate storage.
+Stop the PufferPanel server, preserve the current failed saves separately, verify the chosen archive with `gzip -t`, then restore its `saves/` directory into the panel server's `data/` directory. Preserve `pufferpanel:pufferpanel` ownership. Start only after verifying the restored file count and paths. The database is not the player-storage backend.

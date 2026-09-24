@@ -1,6 +1,6 @@
 # Hetzner Compile Guide
 
-Use this guide after connecting to the Hetzner server over SSH. It compiles the current `/opt/void` checkout without starting Docker.
+Use this guide after connecting to the dedicated Hetzner host at `95.216.71.232`. It builds the current `/opt/void` checkout; PufferPanel manages the running Host-mode RSPS. Do not start Docker Compose for this server.
 
 ## Compile one time
 
@@ -48,4 +48,4 @@ find /opt/void/data/cache -type f | wc -l
 du -sh /opt/void/data/cache
 ```
 
-Then follow `Hetzner-Cloud-Deployment.md` for the file-storage Docker deployment. Do not start Docker until the external save backup and storage configuration have been verified.
+Then follow `Hetzner-Cloud-Deployment.md` to safely stop the PufferPanel server, back up its panel-managed saves, replace only the runtime JAR, and restart through PufferPanel. The RSPS cache is not in Git; saves must remain a real directory under the PufferPanel server root because Host-mode `unshare` cannot see an external symlink.

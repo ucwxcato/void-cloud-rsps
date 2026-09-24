@@ -1,178 +1,51 @@
-# Control the Server with Docker
+# Control the RSPS in PufferPanel
 
-This is a simple guide for controlling the Void server on Hetzner after connecting over SSH.
+The Void RSPS runs on Hetzner dedicated host `95.216.71.232` under PufferPanel server ID `a59b8fa2`, using the Host environment. The old server at `2.28.141.196` is stopped and preserved for rollback.
 
-## 1. Connect to Hetzner
+## Start, stop, restart
 
-From your computer, run:
+Use the PufferPanel server page for **Start**, **Stop**, and **Restart**. This keeps console output and process status managed. A graceful stop sends SIGTERM; the Java shutdown hook saves world/player state. Do not start the old Docker Compose instance.
+
+## Console and status
+
+Open the server's **Console** tab to check startup and live errors. A successful server should complete startup without repeated `GameLoop` errors. The recurring `warped_rat_secondary` drop-table warning is unrelated to connectivity and is not fatal.
+
+For host-level checks over SSH:
 
 ```bash
-ssh root@YOUR_SERVER_IP
+ss -lntp | grep ':43594'
+free -h
+ps -eo pid,rss,args --sort=-rss | head
+journalctl -u pufferpanel --since '15 minutes ago' --no-pager
 ```
 
-Then go to the server folder:
+The game listener should be TCP `43594`. Connect using `95.216.71.232:43594`.
+
+## Build and deploy code
+
+Build in `/opt/void`, then stop the panel server, back up saves, and replace only the JAR:
 
 ```bash
 cd /opt/void
-```
-
-All Docker commands below should be run from `/opt/void`.
-
-## 2. Start the server
-
-To start the existing server container:
-
-```bash
-docker compose up -d
-```
-
-`-d` means detached mode: the server runs in the background and your SSH terminal remains usable.
-
-Starting the container does not delete or reset player saves. Saves are stored outside the code checkout at:
-
-```text
-/srv/void-cloud-rsps-data/saves/
-```
-
-## 3. Check whether it is running
-
-```bash
-docker compose ps
-```
-
-A healthy running server should show a status similar to:
-
-```text
-Up
-```
-
-If it shows `Exited`, the container stopped or crashed. Check the logs before starting it repeatedly.
-
-## 4. See how the server is running
-
-Show recent startup and error output:
-
-```bash
-docker compose logs --tail=200 void
-```
-
-Follow the live log output:
-
-```bash
-docker compose logs -f --tail=100 void
-```
-
-Press `Ctrl+C` to stop watching the logs. This does not stop the server.
-
-Check CPU and memory usage:
-
-```bash
-docker stats
-```
-
-For a continuously updating view every second, including host memory/swap and the Void container:
-
-```bash
-watch -n 1 'free -h; echo; docker stats --no-stream'
-```
-
-Press `Ctrl+C` to exit the live monitor.
-
-Check the container's published ports:
-
-```bash
-docker compose ps
-```
-
-The game server uses TCP port `43594`. Port `8080` is only used if the web server is enabled.
-
-## Connect with the Windows client
-
-From the repository on Windows, run:
-
-```text
-client-hetzner\client.bat
-```
-
-This tracked launcher connects to `2.28.141.196:43594`. Keep the server
-running before launching it. The desktop client requires `-ip` and `-p` in the
-launcher; `-Dvoid.server` will not configure this JAR.
-
-## 5. Stop the server
-
-Stop only the Void game container cleanly:
-
-```bash
-docker compose stop void
-```
-
-This stops the application but preserves the container, image, external saves, and Docker volumes.
-
-Confirm it stopped:
-
-```bash
-docker compose ps -a
-```
-
-## 6. Restart the server
-
-To stop and start the game container again:
-
-```bash
-docker compose restart void
-```
-
-Use this for a normal restart when the image and configuration have not changed.
-
-## 7. Start after changing code
-
-If you changed source code, first compile and rebuild the image:
-
-```bash
+./gradlew --stop
 ./gradlew :game:build -x test --no-daemon
-docker compose build void
-docker compose up -d
 ```
-
-Then check the startup logs:
 
 ```bash
-docker compose ps
-docker compose logs --tail=200 void
+server=/srv/games/pufferpanel/servers/a59b8fa2
+cp /opt/void/game/build/libs/void-server-dev.jar "$server/void-server.jar"
+chown pufferpanel:pufferpanel "$server/void-server.jar"
 ```
 
-## 8. Important commands to avoid
+Start via PufferPanel and check the Console. See `Hetzner-Cloud-Deployment.md` for the complete safe update process.
 
-Do not use these as normal control commands:
+## Saves and backups
 
-- `docker compose down -v` — can remove Docker volumes.
-- `rm -rf /srv/void-cloud-rsps-data` — can delete player saves.
-- `git clean -fdx` — can remove ignored runtime files.
-- Replacing `/srv/void-cloud-rsps-data/saves/` with an empty directory.
+- Live saves: `/srv/games/pufferpanel/servers/a59b8fa2/data/saves/`
+- Backups: `/srv/void-cloud-rsps-backups/`
 
-Before updates, back up the saves according to `Production-Update-Safety.md`.
+Stop the server before backing up or restoring. Keep `data/saves` as a real directory within the PufferPanel server root; Host-mode `unshare` cannot see a symlink to the old external saves path.
 
-## Quick reference
+## Client
 
-```bash
-# Connect
-ssh root@YOUR_SERVER_IP
-
-# Enter the project
-cd /opt/void
-
-# Start
-docker compose up -d
-
-# Check status
-docker compose ps
-
-# View logs
-docker compose logs -f --tail=100 void
-
-# Stop watching logs
-Ctrl+C
-
-# Stop server
-docker compose stop void
-```
+Run `client-hetzner\\client.bat` on Windows. It uses the desktop JAR's `-ip 95.216.71.232 -p 43594` options. Do not substitute `-Dvoid.server`.

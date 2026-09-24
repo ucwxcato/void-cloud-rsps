@@ -1,166 +1,76 @@
-# Hetzner Cloud Deployment Guide
+# Hetzner RSPS Deployment and Operations
 
-This guide runs the `personal-tweaks` branch from `/opt/void/` with local Docker builds and file storage. Compile first with `./gradlew :game:build -x test --no-daemon`; the expected artifact is `game/build/libs/void-server-dev.jar`.
+This is the current deployment guide for the dedicated Hetzner server. It replaces the former Docker Compose deployment on the 4 GB Hetzner Cloud VM.
 
-## Production storage model
+## Current deployment
 
-- Source checkout: `/opt/void/`
-- Authoritative player saves: `/srv/void-cloud-rsps-data/saves/`
-- Save backups: `/srv/void-cloud-rsps-backups/`
-- Container save path: `/app/data/saves/`
-- Storage mode: `storage.type=files`
+- Public game endpoint: `95.216.71.232:43594` (TCP)
+- Host: Ubuntu 24.04, Intel Core i7-8700 (6 cores / 12 threads), 64 GB RAM, mirrored NVMe
+- Source checkout/build workspace: `/opt/void`
+- Branch/revision at migration: `personal-tweaks`, `b2cff164c`
+- Manager: PufferPanel 3, **Host** environment
+- PufferPanel server ID: `a59b8fa2`
+- PufferPanel server directory: `/srv/games/pufferpanel/servers/a59b8fa2/`
+- Runtime JAR: `/srv/games/pufferpanel/servers/a59b8fa2/void-server.jar`
+- Runtime data/cache: `/srv/games/pufferpanel/servers/a59b8fa2/data/`
+- Authoritative saves: `/srv/games/pufferpanel/servers/a59b8fa2/data/saves/`
+- Local backup directory: `/srv/void-cloud-rsps-backups/`
+- Java: OpenJDK 21
+- Runtime options: `-Xms1g -Xmx8g -XX:MaxMetaspaceSize=1g`
 
-The external saves directory is real player data. Git updates and Docker image rebuilds must never replace it.
+PufferPanel Host uses an `unshare` filesystem view. Keep saves physically inside the panel server directory: a symlink to `/srv/void-cloud-rsps-data/saves` is not visible in the server's isolated view and caused `FileNotFoundException` for `data/saves/logs`. Do not re-create that symlink. The old external saves copy is retained for recovery, but the panel directory is authoritative once the new server is started and verified.
 
-PostgreSQL is not the player-storage backend in this model. Do not migrate to database storage or delete any legacy `void-db-data` volume until a separate migration plan has been tested.
+Host mode is simpler for this Java application, but it is not a security boundary comparable to Docker, and it does not enforce CPU/RAM cgroup limits. PufferPanel launches the process as its `pufferpanel` user. The 8 GB JVM heap ceiling is the current safeguard; monitor actual usage as other games are added. The template is in `deploy/pufferpanel/void-rsps-host.json`.
 
-## 1. Install Docker and clone the branch
+## Migration status (2026-09-24)
 
-```bash
-ssh root@YOUR_SERVER_IP
-apt update
-apt install -y git docker.io docker-compose-plugin tar
-systemctl enable --now docker
-docker --version
-docker compose version
-```
+The old server at `2.28.141.196` has been stopped and left intact for rollback. A final saves archive was created at `/srv/void-cloud-rsps-backups/2026-09-24_05-21-24-final-migration/saves.tar.gz`, passed `gzip -t`, and has matching SHA-256 on both hosts (`e73c4c757dc9b441101ed41da30a23d1232936c378a943506e48e89ef152cb99`). Its 50 files were restored to the new host. The cache was copied and checksum-verified; the JAR built successfully and its copied checksum matched.
 
-Clone the personal branch:
+The new PufferPanel instance was started once, reported that `data/saves/logs` was missing in its isolated view, and was stopped. The save data has since been copied into the panel-managed directory. Restart the instance from PufferPanel and confirm clean game-loop/audit logging, existing-account login, save, logout, and relogin before considering cutover complete. The old host remains stopped, not deleted.
 
-```bash
-mkdir -p /opt
-git clone --branch personal-tweaks --single-branch https://github.com/ucwxcato/void-cloud-rsps.git /opt/void
-cd /opt/void
-```
+## Build and deploy an update
 
-For later updates, update the existing checkout:
+Build on the dedicated host:
 
 ```bash
 cd /opt/void
-git fetch origin
-git switch personal-tweaks
-git pull --ff-only origin personal-tweaks
-```
-
-Never use `git clean -fdx` on this server.
-
-## 2. Create persistent data directories
-
-```bash
-mkdir -p /srv/void-cloud-rsps-data/saves
-mkdir -p /srv/void-cloud-rsps-backups
-```
-
-If saves already exist in `/opt/void/data/saves`, copy them once before production starts:
-
-```bash
-cp -a /opt/void/data/saves/. /srv/void-cloud-rsps-data/saves/
-```
-
-After this, `/srv/void-cloud-rsps-data/saves/` is authoritative. Never copy over it while the server is running.
-
-## 3. Verify file storage
-
-Before building, verify the source configuration:
-
-```bash
-grep -n '^storage.type' game/src/main/resources/game.properties
-grep -n '^storage.players.path' game/src/main/resources/game.properties
-```
-
-Expected values:
-
-```text
-storage.type=files
-storage.players.path=./data/saves/
-```
-
-Do not set `storage.type=database`. Existing TOML accounts are not automatically imported into PostgreSQL.
-
-## 4. Install the game cache
-
-The cache is not stored in Git. Upload its contents into `/opt/void/data/cache/` before the Docker image build:
-
-```bash
-find /opt/void/data/cache -type f | head
-du -sh /opt/void/data/cache
-```
-
-## 5. Back up saves
-
-Run this before every first start and update:
-
-```bash
-backup_dir='/srv/void-cloud-rsps-backups/'$(date +%Y-%m-%d_%H-%M-%S)
-mkdir -p "$backup_dir"
-tar -C /srv/void-cloud-rsps-data -czf "$backup_dir/saves.tar.gz" saves
-test -s "$backup_dir/saves.tar.gz"
-```
-
-Keep important backups on separate storage as well as on Hetzner.
-
-## 6. Build and start
-
-```bash
-cd /opt/void
+git status --short --branch
 ./gradlew --stop
 ./gradlew :game:build -x test --no-daemon
-docker compose build void
-docker compose up -d
-docker compose ps
-docker compose logs --tail=200 void
+test -s game/build/libs/void-server-dev.jar
 ```
 
-Do not start Docker until the Compose file is aligned with file storage and the cache has been uploaded.
-
-The game server uses TCP port `43594`. Port `8080` is only needed when the web client is enabled.
-
-## Client connection
-
-The working Windows client is committed in `client-hetzner/`. The ready-to-share
-package is `client-hetzner/void-client-hetzner-windows.zip`. After the server
-is running, launch `client-hetzner/client.bat`. It connects to the public
-Hetzner address `2.28.141.196` on TCP port `43594` using the desktop client's
-`-ip` and `-p` command-line options.
-
-The Java property `-Dvoid.server=...` is not valid for this client JAR. If the
-client fails to connect, verify the container with `docker compose ps` and
-test TCP `43594` from the Windows PC before changing firewall rules.
-
-## 7. Normal update procedure
+Then, during announced maintenance, use PufferPanel to stop server `a59b8fa2` and create a consistent save backup before replacing the JAR:
 
 ```bash
-cd /opt/void
-docker compose stop void
-backup_dir='/srv/void-cloud-rsps-backups/'$(date +%Y-%m-%d_%H-%M-%S)
+server=/srv/games/pufferpanel/servers/a59b8fa2
+backup_dir=/srv/void-cloud-rsps-backups/$(date +%Y-%m-%d_%H-%M-%S)
 mkdir -p "$backup_dir"
-tar -C /srv/void-cloud-rsps-data -czf "$backup_dir/saves.tar.gz" saves
+tar -C "$server/data" -czf "$backup_dir/saves.tar.gz" saves
 test -s "$backup_dir/saves.tar.gz"
-git fetch origin
-git switch personal-tweaks
-git pull --ff-only origin personal-tweaks
-./gradlew :game:build -x test --no-daemon
-docker compose build void
-docker compose up -d
-docker compose logs --tail=200 void
+gzip -t "$backup_dir/saves.tar.gz"
+cp /opt/void/game/build/libs/void-server-dev.jar "$server/void-server.jar"
+chown pufferpanel:pufferpanel "$server/void-server.jar"
 ```
 
-The code update changes the checkout and Docker image only. The external save directory remains in place.
+Start the server from PufferPanel, inspect its Console, and test an existing account. Never replace the JAR while the game process is running. Do not run the old Compose deployment for this instance.
 
-## 8. Never run during normal deployment
+## Restore saves
 
-- `git clean -fdx`
-- `rm -rf /opt/void/data/saves`
-- `rm -rf /srv/void-cloud-rsps-data`
-- `docker compose down -v`
-- Copying a fresh checkout over `/srv/void-cloud-rsps-data`
+Stop the PufferPanel server first and preserve the current save directory before restoring. Verify the selected archive with `gzip -t`. Restore into the panel-managed `data/` directory so the archive's `saves/` directory lands at `.../a59b8fa2/data/saves/`. Keep ownership `pufferpanel:pufferpanel`. Do not restore while the game is running, and do not restore into `/opt/void/data/saves`.
 
-## 9. Smoke test and monitoring
+## Client and port
 
-After every deployment, test login, character loading, a save-changing action, logout, and relogin.
+Use `95.216.71.232` and TCP port `43594`. The desktop client requires `-ip` and `-p`, not the Java property `-Dvoid.server`. `client-hetzner/client.bat` now points at the new address; the distributable ZIP has not yet been rebuilt. Rebuild it after the server passes its smoke test so friends receive the new address. Port `8080` is not the game port; do not expose it for the RSPS.
 
-```bash
-docker compose ps
-docker compose logs -f --tail=100 void
-du -sh /srv/void-cloud-rsps-data/saves
-```
+## Troubleshooting
+
+- Use the PufferPanel Console and server status for the game process.
+- Use `journalctl -u pufferpanel --since '15 minutes ago' --no-pager` for panel/daemon events.
+- Check `ss -lntp | grep ':43594'` for the game listener.
+- Check `free -h` and `ps -eo pid,rss,args --sort=-rss | head` for host memory use.
+- If `data/saves/...` reports `No such file or directory`, verify the saves are a real directory under the PufferPanel server root, not a symlink outside it.
+
+## Legacy deployment
+
+The previous host at `2.28.141.196` used `/opt/void`, Docker Compose, and `/srv/void-cloud-rsps-data/saves`. It is stopped and preserved for rollback only. Its old Compose start/update commands must not be used as the normal production procedure.

@@ -1,0 +1,30 @@
+{
+  "type": "java",
+  "display": "Void RSPS (Host)",
+  "install": [],
+  "run": {
+    "command": "java -Xms1g -Xmx8g -XX:MaxMetaspaceSize=1g -jar void-server.jar",
+    "stopCode": 15,
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": true,
+    "autorecover": true,
+    "autorestart": true
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64",
+    "binaries": [
+      "java"
+    ]
+  }
+}
