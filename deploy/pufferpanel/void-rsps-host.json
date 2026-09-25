@@ -1,10 +1,57 @@
 {
   "type": "java",
   "display": "Void RSPS (Host)",
+  "data": {
+    "discordWebhook": {
+      "type": "string",
+      "value": "",
+      "display": "Discord webhook URL",
+      "desc": "Optional secret used for server lifecycle notifications and plain player logout notices. Set this in PufferPanel only; never commit a real webhook URL. Leave blank to disable these notices.",
+      "required": false,
+      "userEdit": false
+    },
+    "discordXpWebhook": {
+      "type": "string",
+      "value": "",
+      "display": "XP summary webhook URL",
+      "desc": "Optional secret used for player login notices and XP logout summaries. Set this in PufferPanel only; never commit a real webhook URL. Leave blank to disable both notices.",
+      "required": false,
+      "userEdit": false
+    },
+    "discordLoginWebhook": {
+      "type": "string",
+      "value": "",
+      "display": "Player login webhook URL",
+      "desc": "Optional secret used only for successful player login notices. Set this in PufferPanel only; never commit a real webhook URL. Leave blank to disable login notices.",
+      "required": false,
+      "userEdit": false
+    }
+  },
   "install": [],
   "run": {
     "command": "java -Xms1g -Xmx8g -XX:MaxMetaspaceSize=1g -jar void-server.jar",
     "stopCode": 15,
+    "pre": [
+      {
+        "type": "command",
+        "commands": [
+          "python3 ./pufferpanel-discord-notify.py void-rsps starting"
+        ]
+      }
+    ],
+    "post": [
+      {
+        "type": "command",
+        "commands": [
+          "python3 ./pufferpanel-discord-notify.py void-rsps stopped"
+        ]
+      }
+    ],
+    "environmentVars": {
+      "DISCORD_WEBHOOK_URL": "${discordWebhook}",
+      "DISCORD_XP_WEBHOOK_URL": "${discordXpWebhook}",
+      "DISCORD_LOGIN_WEBHOOK_URL": "${discordLoginWebhook}"
+    },
     "stdin": {
       "type": "stdin"
     },
@@ -24,7 +71,8 @@
     "os": "linux",
     "arch": "amd64",
     "binaries": [
-      "java"
+      "java",
+      "python3"
     ]
   }
 }

@@ -64,6 +64,13 @@ Do not migrate player storage to PostgreSQL or delete a legacy `void-db-data` vo
 - Start and stop the RSPS through PufferPanel so its console and process state stay managed. The JVM shutdown hook saves state on graceful termination.
 - Other game servers may use Docker independently; Docker Compose is not the production launcher for this RSPS.
 
+## Discord XP logout summaries
+
+- The game can post each real player's positive XP gains from the current session to the dedicated Discord XP channel on logout. Sessions with no XP gain produce no message; bots are excluded.
+- Configure the dedicated XP channel webhook through PufferPanel's secret-backed `discordXpWebhook` variable (`DISCORD_XP_WEBHOOK_URL`) and the player login webhook through `discordLoginWebhook` (`DISCORD_LOGIN_WEBHOOK_URL`). Successful real-player logins go to the login webhook, skill XP gains at logout go to the XP webhook, and plain logout notices go to the status webhook (`discordWebhook` / `DISCORD_WEBHOOK_URL`). The status webhook remains an XP fallback. Do not put webhook URLs in tracked files, commit them, or print them in logs.
+- Webhook delivery runs asynchronously and must not delay logout. A failed Discord request is logged without affecting player saves or server operation.
+- The logout summary uses per-skill XP differences captured at login; it is informational and does not change player save data.
+
 ## Build and deployment
 
 Build in `/opt/void`:
@@ -112,6 +119,7 @@ Before any command that can delete, overwrite, reset, restore, or migrate runtim
 - `TWEAKS-PERSONAL/`: one document per personal gameplay/code tweak.
 - `DOCS-PERSONAL/Hetzner-Cloud-Deployment.md`: current PufferPanel deployment and operations.
 - `DOCS-PERSONAL/Production-Update-Safety.md`: save backup and persistence rules.
+- `TWEAKS-PERSONAL/discord-xp-logout-summary.md`: Discord XP logout summary behavior and configuration.
 - `DOCS-PERSONAL/planned/Personal-Branch-Update-Plan.md`: upstream synchronization workflow.
 - `DOCS-PERSONAL/build-run-cmd.md`: build and runtime commands.
 - `deploy/pufferpanel/void-rsps-host.json`: importable Host template.
